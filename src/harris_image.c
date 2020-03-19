@@ -159,7 +159,7 @@ image structure_matrix(image im, float sigma)
     image Iy_Iy = make_image(I_x.w,I_x.h,I_x.c); 
     image Ix_Iy = make_image(I_x.w,I_x.h,I_x.c); 
 
-    for(int i = 0; i < im.w * im.h * im.c; ++i)
+    for(int i = 0; i < Ix_Iy.w * Ix_Iy.h * Ix_Iy.c; ++i)
     {
         float pixel_x = I_x.data[i]; 
         float pixel_y = I_y.data[i]; 
@@ -169,7 +169,6 @@ image structure_matrix(image im, float sigma)
         Ix_Iy.data[i] = pixel_x * pixel_y; 
     }
 
-    assert((Ix_Ix.c ==1) &&  (Iy_Iy.c == 1) && (Ix_Iy.c == 1)); 
 
     //smoothing 
     image Ix_Ix_blur = smooth_image(Ix_Ix,sigma);
@@ -217,7 +216,6 @@ image structure_matrix(image im, float sigma)
     
     return S;
 }
-
 // Estimate the cornerness of each pixel given a structure matrix S.
 // image S: structure matrix for an image.
 // returns: a response map of cornerness calculations.
@@ -293,12 +291,14 @@ descriptor *harris_corner_detector(image im, float sigma, float thresh, int nms,
     // Calculate structure matrix
     image S = structure_matrix(im, sigma);
 
+    
     // Estimate cornerness
     image R = cornerness_response(S);
-
+    
     // Run NMS on the responses
+    
     image Rnms = nms_image(R, nms);
-
+    
 
     //TODO: count number of responses over threshold
     int count = 0; // change this
@@ -310,6 +310,8 @@ descriptor *harris_corner_detector(image im, float sigma, float thresh, int nms,
     
     *n = count; // <- set *n equal to number of corners in image.
     descriptor *d = calloc(count, sizeof(descriptor));
+    
+    
     image *sobel = sobel_image(im); 
     feature_normalize(*sobel); 
     int size_column_descriptor = 5;
@@ -323,6 +325,10 @@ descriptor *harris_corner_detector(image im, float sigma, float thresh, int nms,
                 float pixel = get_pixel(Rnms, i, j, k);  //nms pic pixel value 
                 
                 if ((pixel > thresh) && (descriptor_count < count)){
+                    d[descriptor_count].p.x = i;
+                    d[descriptor_count].p.y = j;
+                    d[descriptor_count].n = size_column_descriptor*size_row_descriptor ;
+                    d[descriptor_count].data = calloc(size_column_descriptor*size_row_descriptor , sizeof(float));
 
                     for(int l = 0; l < size_row_descriptor; ++l){
                         for(int m = 0; m < size_column_descriptor; ++m){
@@ -340,11 +346,8 @@ descriptor *harris_corner_detector(image im, float sigma, float thresh, int nms,
             }
         }
     }
-
-    free_image(S);
-    free_image(R);
-    free_image(Rnms);
-    free(sobel);
+    
+    
     return d;
 }
 
