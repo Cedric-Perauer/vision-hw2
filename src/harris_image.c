@@ -83,8 +83,23 @@ void mark_corners(image im, descriptor *d, int n)
 // returns: single row image of the filter.
 image make_1d_gaussian(float sigma)
 {
-    // TODO: optional, make separable 1d Gaussian.
-    return make_image(1,1,1);
+    int size = (int) (6 * sigma); 
+    size = size%2 == 0 ? size+1 : size; 
+ 
+    image image_filter = make_image(size,1,1);
+    for(int x = 0; x < size; ++x)
+    {    
+        float f_x = x - image_filter.w/2; 
+        float div = 1.0/(TWOPI * sigma * sigma); 
+        float exponent = -(f_x*f_x)/(2 * sigma*sigma);
+        float val = div * exp(exponent);
+
+        set_pixel(image_filter,x,0,0,val);  
+    } 
+
+    l1_normalize(image_filter);
+
+    return image_filter;
 }
 
 // Smooths an image using separable Gaussian filter.
@@ -93,16 +108,23 @@ image make_1d_gaussian(float sigma)
 // returns: smoothed image.
 image smooth_image(image im, float sigma)
 {
-    if(1){
-        image g = make_gaussian_filter(sigma);
-        image s = convolve_image(im, g, 1);
+        image g = make_gaussian_filter(sigma); //horizontal gaussian 
+        image g_v = make_image(1,g.w,1);
+
+        image h_smooth = convolve_image(im,g,1); 
+        for(int i = 0; i < g_v.h;++i)
+        {
+            g_v.data[i] = g.data[i]; //Fill image filter 
+        } 
+
+
+        image v_smooth = convolve_image(h_smooth, g_v, 1);
         free_image(g);
-        return s;
-    } else {
-        // TODO: optional, use two convolutions with 1d gaussian filter.
-        // If you implement, disable the above if check.
-        return copy_image(im);
-    }
+        free_image(g_v);
+        free_image(h_smooth);
+
+
+        return v_smooth; 
 }
 
 // Calculate the structure matrix of an image.
@@ -113,7 +135,76 @@ image smooth_image(image im, float sigma)
 image structure_matrix(image im, float sigma)
 {
     image S = make_image(im.w, im.h, 3);
-    // TODO: calculate structure matrix for im.
+
+    image gx_filter = make_gx_filter();
+    image gy_filter = make_gy_filter();
+
+    image I_x = convolve_image(im, gx_filter, 0);
+    image I_y = convolve_image(im, gy_filter, 0);
+
+    //ceck if filter dimensions are good
+    assert((I_x.w == I_y.w) && (I_x.h == I_y.h) && (I_x.c == I_y.c));
+    
+    image Ix_Ix = make_image(I_x.w,I_x.h,I_x.c);
+    image Iy_Iy = make_image(I_x.w,I_x.h,I_x.c); 
+    image Ix_Iy = make_image(I_x.w,I_x.h,I_x.c); 
+
+    for(int i = 0; i < im.w * im.h * im.c; ++i)
+    {
+        float pixel_x = I_x.data[i]; 
+        float pixel_y = I_y.data[i]; 
+
+        Ix_Ix.data[i] = pixel_x * pixel_x; 
+        Iy_Iy.data[i] = pixel_y * pixel_y; 
+        Ix_Iy.data[i] = pixel_x * pixel_y; 
+    }
+
+    assert((Ix_Ix.c ==1) &&  (Iy_Iy.c == 1) && (Ix_Iy.c == 1)); 
+
+    //smoothing 
+    image Ix_Ix_blur = smooth_image(Ix_Ix,sigma);
+    image Iy_Iy_blur = smooth_image(Iy_Iy,sigma); 
+    image Ix_Iy_blur = smooth_image(Ix_Iy,sigma); 
+
+    float p; 
+    for(int c =0 ; c <S.c; ++c)
+    {
+        for(int x =0 ; x <S.w; ++x)
+        {
+            for(int y =0 ; y <S.h; ++y)
+            {   
+                if(c==0)
+                {
+                    p = get_pixel(Ix_Ix_blur,x,y,c);
+                }
+
+                else if (c==1)
+                {   
+                    p = get_pixel(Ix_Iy_blur,x,y,c);
+                }
+                else
+                {
+                    p = get_pixel(Iy_Iy_blur,x,y,c);
+                }
+
+                set_pixel(S,x,y,c,p);
+                
+            }
+        }
+    }
+
+    
+    free_image(Ix_Ix_blur);
+    free_image(Ix_Iy_blur); 
+    free_image(Iy_Iy_blur); 
+    free_image(Ix_Iy);
+    free_image(Iy_Iy); 
+    free_image(Ix_Ix); 
+    free_image(I_x); 
+    free_image(I_y);
+    free_image(gy_filter); 
+    free_image(gx_filter); 
+    
     return S;
 }
 
