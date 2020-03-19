@@ -7,7 +7,8 @@
 #include "image.h"
 #include "matrix.h"
 
-//Thank you to emoyas, I used his code for this file in order to move on more quickly to the next lessons 
+//Thank you to emoyas, I ended up using his code for the panorama specific part in order to move on more quickly to the next lessons 
+//which are more important to me
 // Comparator for matches
 // const void *a, *b: pointers to the matches to compare.
 // returns: result of comparison, 0 if same, 1 if a > b, -1 if a < b.
